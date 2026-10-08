@@ -5,6 +5,7 @@
 import { MONITORS } from "./monitors.ts";
 import { renderBadge } from "./badge.ts";
 import { renderPage } from "./page.ts";
+import { indexingHeaders } from "./robots.ts";
 import { summarize } from "./summary.ts";
 import { HISTORY_BARS, serviceHistory, UPTIME_WINDOW_MS, type ServiceHistory } from "./history.ts";
 import type { CheckResult } from "./probe.ts";
@@ -49,8 +50,7 @@ const SECURITY_HEADERS = {
   "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 };
 
-export default {
-  async fetch(request, _env, ctx): Promise<Response> {
+async function route(request: Request, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     const now = Date.now();
     if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed\n", { status: 405, headers: { allow: "GET, HEAD" } });
@@ -75,9 +75,21 @@ export default {
       });
     }
     return new Response("Not found\n", { status: 404, headers: { "content-type": "text/plain; charset=utf-8", ...SECURITY_HEADERS } });
+}
+
+export default {
+  async fetch(request, _env, ctx): Promise<Response> {
+    const response = await route(request, ctx);
+    const extra = indexingHeaders(request.url);
+    if (Object.keys(extra).length === 0) return response;
+    // Every response, Previews' 404s included, carries the header; the body passes through untouched.
+    const headers = new Headers(response.headers);
+    for (const [name, value] of Object.entries(extra)) headers.set(name, value);
+    return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
   },
 
   async scheduled(controller, _env, ctx): Promise<void> {
     await ledgerOf(ctx).runChecks(controller.scheduledTime);
   },
 } satisfies ExportedHandler<Env>;
+
