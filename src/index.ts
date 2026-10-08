@@ -1,6 +1,52 @@
-// Beacon: uptime monitor and public status page. Scaffold, replaced by the first real version.
+// Beacon Worker: the status page, its JSON, and the checks behind them. A cron trigger runs the checks in
+// production every minute; any request also runs them when the latest result is stale, which is how a
+// Preview (where cron triggers do not run) shows live data.
+
+import { MONITORS } from "./monitors.ts";
+import { renderPage } from "./page.ts";
+import { summarize } from "./summary.ts";
+
+export { Ledger } from "./ledger.ts";
+
+/** A page older than this triggers a fresh run before it is served. */
+const STALE_MS = 90_000;
+
+const ledgerOf = (ctx: ExecutionContext) => ctx.exports.Ledger.getByName("main");
+
+async function current(ctx: ExecutionContext, now: number) {
+  const ledger = ledgerOf(ctx);
+  let latest = await ledger.latest();
+  const newest = latest.reduce((t, r) => Math.max(t, r.at), 0);
+  if (now - newest > STALE_MS) {
+    const run = await ledger.runChecks(now);
+    if (run.ran) latest = await ledger.latest();
+  }
+  return summarize(MONITORS, new Map(latest.map((r) => [r.monitor, r])));
+}
+
+const SECURITY_HEADERS = {
+  "x-content-type-options": "nosniff",
+  "referrer-policy": "no-referrer",
+  "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+};
+
 export default {
-  async fetch(): Promise<Response> {
-    return new Response("Beacon is being set up.\n", { headers: { "content-type": "text/plain; charset=utf-8" } });
+  async fetch(request, _env, ctx): Promise<Response> {
+    const url = new URL(request.url);
+    const now = Date.now();
+    if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed\n", { status: 405, headers: { allow: "GET, HEAD" } });
+    if (url.pathname === "/") {
+      const html = renderPage(await current(ctx, now), now);
+      return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...SECURITY_HEADERS } });
+    }
+    if (url.pathname === "/api/status") {
+      const s = await current(ctx, now);
+      return Response.json({ generatedAt: new Date(now).toISOString(), ...s }, { headers: { "cache-control": "no-store", "access-control-allow-origin": "*", ...SECURITY_HEADERS } });
+    }
+    return new Response("Not found\n", { status: 404, headers: { "content-type": "text/plain; charset=utf-8", ...SECURITY_HEADERS } });
   },
-} satisfies ExportedHandler;
+
+  async scheduled(controller, _env, ctx): Promise<void> {
+    await ledgerOf(ctx).runChecks(controller.scheduledTime);
+  },
+} satisfies ExportedHandler<Env>;

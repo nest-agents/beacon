@@ -1,0 +1,10 @@
+{
+  "setup": "npm ci --omit=optional --no-audit --no-fund",
+  "checks": [
+    { "id": "test", "run": "npm test", "timeoutSeconds": 180 },
+    { "id": "types", "run": "npx tsc --noEmit", "timeoutSeconds": 180 }
+  ],
+  "preview": { "url": "https://{branch}.beacon-previews.nestagents.dev", "path": "/" },
+  "production": "https://beacon.nestagents.dev",
+  "protected": ["src/monitors.ts", "wrangler.jsonc"]
+}

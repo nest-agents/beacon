@@ -11,5 +11,9 @@
   ],
   "workers_dev": false,
   "preview_urls": false,
+  // Production checks every minute. Cron triggers do not run on Previews; a stale page runs the checks instead.
+  "triggers": { "crons": ["* * * * *"] },
+  // Reached through ctx.exports, so each Preview gets its own Ledger storage.
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Ledger"] }],
   "previews": {}
 }
