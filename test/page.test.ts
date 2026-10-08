@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { renderPage } from "../src/page.ts";
+import { duration, renderPage } from "../src/page.ts";
 import { summarize } from "../src/summary.ts";
 import type { Monitor } from "../src/monitors.ts";
 
@@ -41,6 +41,15 @@ test("a service with no checks in 24 hours shows no percentage, not 100%", () =>
   const html = renderPage(summarize(monitors, new Map()), 0, new Map([["a", { bars: [], uptime: null }]]));
   assert.match(html, /No checks in 24 h/);
   assert.doesNotMatch(html, /100(\.0)?%/);
+});
+
+test("duration reads as minutes, hours and days", () => {
+  assert.equal(duration(0), "1 min");
+  assert.equal(duration(45 * 60_000), "45 min");
+  assert.equal(duration(2 * 3_600_000), "2 h");
+  assert.equal(duration(125 * 60_000), "2 h 5 min");
+  assert.equal(duration(47 * 3_600_000), "47 h");
+  assert.equal(duration(3 * 24 * 3_600_000), "3 days");
 });
 
 test("the page without histories still renders", () => {

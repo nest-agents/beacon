@@ -8,6 +8,15 @@ const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "
 
 const STATE_LABEL = { up: "Operational", down: "Down", unknown: "No data yet" } as const;
 
+/** "45 min", "2 h 5 min", "3 days": how long something lasted. */
+export function duration(ms: number): string {
+  const m = Math.max(1, Math.round(ms / 60_000));
+  if (m < 60) return `${m} min`;
+  const h = Math.floor(m / 60), rest = m % 60;
+  if (h < 48) return rest ? `${h} h ${rest} min` : `${h} h`;
+  return `${Math.round(h / 24)} days`;
+}
+
 /** The strip: one bar per check, oldest on the left. Each bar says whether its check passed. */
 function strip(h: ServiceHistory | undefined): string {
   const bars = h?.bars ?? [];
