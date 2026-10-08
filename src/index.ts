@@ -3,6 +3,7 @@
 // Preview (where cron triggers do not run) shows live data.
 
 import { MONITORS } from "./monitors.ts";
+import { renderBadge } from "./badge.ts";
 import { renderPage } from "./page.ts";
 import { summarize } from "./summary.ts";
 import { HISTORY_BARS, serviceHistory, UPTIME_WINDOW_MS, type ServiceHistory } from "./history.ts";
@@ -58,6 +59,16 @@ export default {
     if (url.pathname === "/api/status") {
       const s = await current(ctx, now);
       return Response.json({ generatedAt: new Date(now).toISOString(), ...s }, { headers: { "cache-control": "no-store", "access-control-allow-origin": "*", ...SECURITY_HEADERS } });
+    }
+    const badgePath = /^\/badge\/([a-z0-9-]+)\.svg$/.exec(url.pathname);
+    if (badgePath) {
+      const monitor = MONITORS.find((m) => m.id === badgePath[1]);
+      if (!monitor) return new Response("Not found\n", { status: 404, headers: { "content-type": "text/plain; charset=utf-8", ...SECURITY_HEADERS } });
+      const service = (await current(ctx, now)).services.find((s) => s.id === monitor.id);
+      const svg = renderBadge(monitor.name, service?.state ?? "unknown");
+      return new Response(request.method === "HEAD" ? null : svg, {
+        headers: { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=60", ...SECURITY_HEADERS },
+      });
     }
     return new Response("Not found\n", { status: 404, headers: { "content-type": "text/plain; charset=utf-8", ...SECURITY_HEADERS } });
   },

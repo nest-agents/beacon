@@ -27,6 +27,6 @@ export function renderBadge(name: string, state: ServiceState): string {
   <rect width="${BADGE_WIDTH}" height="20" rx="3" fill="#343a40" />
   <path d="M118 0h75a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3h-75z" fill="${status.color}" />
   <text x="7" y="14" clip-path="url(#name-clip)" textLength="${textLength}" lengthAdjust="spacingAndGlyphs" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="10">${esc(name)}</text>
-  <text x="155" y="14" text-anchor="middle" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="700">${status.label}</text>
+  <text x="157" y="14" text-anchor="middle" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="700">${status.label}</text>
 </svg>`;
 }
