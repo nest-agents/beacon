@@ -38,6 +38,20 @@ export class Ledger extends DurableObject<Env> {
     return { ran: true, results };
   }
 
+  /**
+   * The results a status page needs for each monitor's history: its last `count` results, and every result
+   * from the last `windowMs` (so the 24-hour uptime is complete even when checks are sparse). Unordered.
+   */
+  recent(now: number, count: number, windowMs: number): CheckResult[] {
+    const rows = this.sql.exec<Row>(
+      `SELECT * FROM checks WHERE id IN (
+         SELECT id FROM (SELECT id, at, ROW_NUMBER() OVER (PARTITION BY monitor ORDER BY at DESC) AS rn FROM checks)
+         WHERE rn <= ? OR at >= ?)`,
+      count, now - windowMs,
+    ).toArray();
+    return rows.map(toResult);
+  }
+
   /** Each monitor's most recent result. */
   latest(): CheckResult[] {
     return this.sql.exec<Row>(
