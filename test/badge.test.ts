@@ -24,3 +24,15 @@ test("badge states use the page palette and grey for no data", () => {
   assert.match(renderBadge("Nest", "down"), /fill="#d0103a"/);
   assert.match(renderBadge("Nest", "unknown"), /fill="#6b7280"/);
 });
+
+test("without a status link the badge has no anchor", () => {
+  assert.doesNotMatch(renderBadge("Nest", "up"), /<a /);
+});
+
+test("with a status link the whole badge is wrapped in an escaped anchor", () => {
+  const svg = renderBadge("Nest", "up", `https://beacon.example/?a=1&b="2"`);
+  assert.match(svg, /<a href="https:\/\/beacon\.example\/\?a=1&amp;b=&quot;2&quot;" target="_top">\n/);
+  assert.match(svg, /<\/text>\n  <\/a>\n<\/svg>$/);
+  assert.equal(svg.match(/<a /g)?.length, 1);
+  assert.equal(svg.match(/<\/a>/g)?.length, 1);
+});

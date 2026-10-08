@@ -15,18 +15,23 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[c]!);
 
-/** Render a fixed-size badge; the clipped name area keeps any service name inside the SVG. */
-export function renderBadge(name: string, state: ServiceState): string {
+/**
+ * Render a fixed-size badge; the clipped name area keeps any service name inside the SVG.
+ * With `statusHref`, the whole badge is an SVG link to that page, so opening the SVG directly leads there too.
+ */
+export function renderBadge(name: string, state: ServiceState, statusHref?: string): string {
   const status = STATE[state];
   const accessibleName = `${name}: ${status.label}`;
   // Scale longer names to the available width. The clip remains a hard boundary for wide glyphs.
   const textLength = Math.min(NAME_WIDTH, Math.max(1, Array.from(name).length * 6.1));
+  const link = statusHref === undefined ? null : `<a href="${esc(statusHref)}" target="_top">`;
+  const body = `  <rect width="${BADGE_WIDTH}" height="20" rx="3" fill="#343a40" />
+  <path d="M118 0h75a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3h-75z" fill="${status.color}" />
+  <text x="7" y="14" clip-path="url(#name-clip)" textLength="${textLength}" lengthAdjust="spacingAndGlyphs" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="10">${esc(name)}</text>
+  <text x="157" y="14" text-anchor="middle" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="700">${status.label}</text>`;
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${BADGE_WIDTH}" height="20" viewBox="0 0 ${BADGE_WIDTH} 20" role="img" aria-label="${esc(accessibleName)}">
   <title>${esc(accessibleName)}</title>
   <defs><clipPath id="name-clip"><rect x="6" y="0" width="${NAME_WIDTH}" height="20" /></clipPath></defs>
-  <rect width="${BADGE_WIDTH}" height="20" rx="3" fill="#343a40" />
-  <path d="M118 0h75a3 3 0 0 1 3 3v14a3 3 0 0 1-3 3h-75z" fill="${status.color}" />
-  <text x="7" y="14" clip-path="url(#name-clip)" textLength="${textLength}" lengthAdjust="spacingAndGlyphs" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="10">${esc(name)}</text>
-  <text x="157" y="14" text-anchor="middle" fill="#fff" font-family="Arial,Helvetica,sans-serif" font-size="9" font-weight="700">${status.label}</text>
+${link ? `  ${link}\n${body}\n  </a>` : body}
 </svg>`;
 }
