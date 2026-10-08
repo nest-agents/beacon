@@ -9,6 +9,7 @@ import { indexingHeaders } from "./robots.ts";
 import { summarize } from "./summary.ts";
 import { HISTORY_BARS, serviceHistory, UPTIME_WINDOW_MS, type ServiceHistory } from "./history.ts";
 import { openIncidentsByMonitor } from "./incidents.ts";
+import { INCIDENT_FEED_WINDOW_MS, incidentFeed, serializeAtomFeed } from "./incident-feed.ts";
 import type { CheckResult } from "./probe.ts";
 
 export { Ledger } from "./ledger.ts";
@@ -31,7 +32,7 @@ async function current(ctx: ExecutionContext, now: number) {
 
 /** Open incidents and those closed in the last 7 days, as the page lists them. */
 const INCIDENT_HISTORY_MS = 7 * 24 * 60 * 60 * 1000;
-const incidentsOf = (ctx: ExecutionContext, now: number) => ledgerOf(ctx).incidents(now - INCIDENT_HISTORY_MS);
+const incidentsSince = (ctx: ExecutionContext, since: number) => ledgerOf(ctx).incidents(since);
 
 /** Each service's strip and 24-hour uptime, from the results the Ledger holds. */
 async function histories(ctx: ExecutionContext, now: number): Promise<Map<string, ServiceHistory>> {
@@ -58,13 +59,13 @@ async function route(request: Request, ctx: ExecutionContext): Promise<Response>
     if (url.pathname === "/") {
       // Sequential on purpose: `current` may run the checks, and the history must include what it just stored.
       const summary = await current(ctx, now);
-      const html = renderPage(summary, now, await histories(ctx, now), await incidentsOf(ctx, now));
+      const html = renderPage(summary, now, await histories(ctx, now), await incidentsSince(ctx, now - INCIDENT_HISTORY_MS));
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...SECURITY_HEADERS } });
     }
     if (url.pathname === "/api/status") {
       const s = await current(ctx, now);
       const hs = await histories(ctx, now);
-      const openIncidents = openIncidentsByMonitor(await incidentsOf(ctx, now));
+      const openIncidents = openIncidentsByMonitor(await incidentsSince(ctx, now - INCIDENT_HISTORY_MS));
       const services = s.services.map((x) => {
         const history = hs.get(x.id);
         const lat = history?.latency ?? null;
@@ -77,6 +78,25 @@ async function route(request: Request, ctx: ExecutionContext): Promise<Response>
         };
       });
       return Response.json({ generatedAt: new Date(now).toISOString(), ...s, services }, { headers: { "cache-control": "no-store", "access-control-allow-origin": "*", ...SECURITY_HEADERS } });
+    }
+    if (url.pathname === "/incidents.atom") {
+      // Like the status routes, polling in a Preview should refresh stale checks even without cron.
+      await current(ctx, now);
+      const feed = incidentFeed(
+        await incidentsSince(ctx, now - INCIDENT_FEED_WINDOW_MS),
+        MONITORS,
+        now,
+        `${url.origin}/incidents.atom`,
+      );
+      const body = serializeAtomFeed(feed);
+      return new Response(request.method === "HEAD" ? null : body, {
+        headers: {
+          "content-type": "application/atom+xml; charset=utf-8",
+          "cache-control": "public, max-age=60",
+          "access-control-allow-origin": "*",
+          ...SECURITY_HEADERS,
+        },
+      });
     }
     const badgePath = /^\/badge\/([a-z0-9-]+)\.svg$/.exec(url.pathname);
     if (badgePath) {

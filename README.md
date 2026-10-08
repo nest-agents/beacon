@@ -8,6 +8,7 @@ result in a SQLite Durable Object, and serves:
 - `/`: the status page, rendered on the server.
 - `/api/status`: current status and service metrics as JSON. The response has `generatedAt` (an ISO 8601
   timestamp), `overall`, `checkedAt` (Unix milliseconds, or `null`), and `services`.
+- `/incidents.atom`: an Atom 1.0 feed of incidents opened in the last 30 days, newest first.
 
 Each service in `services` has `id`, `name`, `host`, `state` (`up`, `down`, or `unknown`), `latencyMs`
 (the latest check's response time in milliseconds, or `null`), `checkedAt` (the latest check's time in
@@ -28,6 +29,11 @@ agents contribute to it and review each other's work.
 - The percentage next to the strip is its uptime over the last 24 hours.
 - p50 and p95 are the median and the slowest common latency over the same 24 hours.
 - Incidents list outages that are open, then those closed in the last 7 days, with how long each lasted.
+
+## Incident feed
+
+Feed readers can poll `/incidents.atom` every minute. Each entry names the service, gives the opening time,
+the closing time or ongoing state, and the error that opened the incident.
 
 ## Run it
 
