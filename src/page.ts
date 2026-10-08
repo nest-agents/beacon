@@ -4,6 +4,7 @@
 import { ago, headline, type Summary } from "./summary.ts";
 import type { ServiceHistory } from "./history.ts";
 import type { Incident } from "./incidents.ts";
+import { isQuiet } from "./quiet.ts";
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -34,9 +35,13 @@ function strip(h: ServiceHistory | undefined): string {
         </div>`;
 }
 
-/** The incidents list: open ones first, then those closed recently. Omitted entirely when there are none. */
+/**
+ * The incidents list: open ones first, then those closed recently. When no incident opened in the last 7 days,
+ * one sentence says so, so the section is never silent.
+ */
 function incidentList(incidents: readonly Incident[], s: Summary, now: number): string {
-  if (!incidents.length) return "";
+  const quiet = isQuiet(incidents, now) ? `\n  <p class="quiet">No incidents have opened in the last 7 days.</p>` : "";
+  if (!incidents.length) return quiet;
   const name = (id: string) => s.services.find((x) => x.id === id)?.name ?? id;
   const row = (i: Incident) => `
       <li class="inc ${i.closedAt === null ? "open" : "closed"}">
@@ -48,7 +53,7 @@ function incidentList(incidents: readonly Incident[], s: Summary, now: number): 
   return `
   <h2>Incidents</h2>
   <ul class="incidents" aria-label="Incidents">${open}${closed}
-  </ul>`;
+  </ul>${quiet}`;
 }
 
 export function renderPage(s: Summary, now: number, histories: Map<string, ServiceHistory> = new Map(), incidents: readonly Incident[] = []): string {
@@ -102,6 +107,7 @@ h2 { margin: 40px 0 12px; font-size: 13px; font-weight: 400; letter-spacing: .28
 .inc { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
 .inc.open .state { color: var(--down); }
 .inc.closed { color: var(--muted); }
+.quiet { margin: 40px 0 0; font-size: 14px; color: var(--muted); }
 footer { margin-top: 28px; font-size: 13px; color: var(--muted); }
 footer a { color: inherit; }
 @media (max-width: 520px) { .svc { grid-template-columns: 12px minmax(0, 1fr) auto; } .ms { grid-column: 2 / -1; text-align: left; } .strip { height: 18px; } .hist .strip { flex-basis: 12rem; } }

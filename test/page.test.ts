@@ -94,3 +94,18 @@ test("the page without histories still renders", () => {
   assert.match(html, /<h1>Waiting for the first checks/);
   assert.doesNotMatch(html, /class="bar /);
 });
+
+test("with no incident in the last 7 days, the page says so in one sentence", () => {
+  const now = 100 * 24 * 3_600_000;
+  const html = renderPage(summarize(monitors, new Map()), now);
+  assert.match(html, /<p class="quiet">No incidents have opened in the last 7 days\.<\/p>/);
+  assert.doesNotMatch(html, /<h2>Incidents<\/h2>/);
+});
+
+test("an incident older than 7 days gets the sentence, and an incident inside 7 days does not", () => {
+  const now = 100 * 24 * 3_600_000;
+  const old: Incident = { monitor: "a", openedAt: now - 10 * 24 * 3_600_000, closedAt: now - 9 * 24 * 3_600_000, error: "HTTP 503" };
+  const recent: Incident = { monitor: "a", openedAt: now - 2 * 24 * 3_600_000, closedAt: now - 2 * 24 * 3_600_000 + 60_000, error: "HTTP 503" };
+  assert.match(renderPage(summarize(monitors, new Map()), now, new Map(), [old]), /class="quiet"/);
+  assert.doesNotMatch(renderPage(summarize(monitors, new Map()), now, new Map(), [recent]), /class="quiet"/);
+});
