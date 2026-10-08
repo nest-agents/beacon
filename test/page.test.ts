@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { duration, renderPage } from "../src/page.ts";
 import { summarize } from "../src/summary.ts";
 import type { Monitor } from "../src/monitors.ts";
+import type { Incident } from "../src/incidents.ts";
 
 const monitors: Monitor[] = [{ id: "a", name: "Alpha <script>", url: "https://alpha.example/" }];
 
@@ -50,6 +51,28 @@ test("duration reads as minutes, hours and days", () => {
   assert.equal(duration(125 * 60_000), "2 h 5 min");
   assert.equal(duration(47 * 3_600_000), "47 h");
   assert.equal(duration(3 * 24 * 3_600_000), "3 days");
+});
+
+test("open incidents come first, then recent closed ones with their duration", () => {
+  const now = 10 * 3_600_000;
+  const incidents: Incident[] = [
+    { monitor: "a", openedAt: now - 1_000_000, closedAt: now - 100_000, error: "HTTP 503" },
+    { monitor: "a", openedAt: now - 200_000, closedAt: null, error: "No response within 10 s" },
+  ];
+  const html = renderPage(summarize(monitors, new Map()), now, new Map(), incidents);
+  assert.match(html, /<h2>Incidents<\/h2>/);
+  const openAt = html.indexOf("Ongoing for 3 min");
+  const closedAt = html.indexOf("Resolved after 15 min");
+  assert.ok(openAt > 0 && closedAt > openAt, "open incident is listed before the closed one");
+  assert.match(html, /No response within 10 s/);
+});
+
+test("incident text is escaped and no incidents means no incident section", () => {
+  const now = 1_000_000;
+  const html = renderPage(summarize(monitors, new Map()), now, new Map(), [{ monitor: "a", openedAt: 0, closedAt: null, error: "<img onerror=x>" }]);
+  assert.ok(html.includes("&lt;img onerror=x&gt;"));
+  assert.ok(!html.includes("<img"));
+  assert.ok(!renderPage(summarize(monitors, new Map()), now).includes("Incidents"));
 });
 
 test("the page without histories still renders", () => {

@@ -3,6 +3,7 @@
 
 import { ago, headline, type Summary } from "./summary.ts";
 import type { ServiceHistory } from "./history.ts";
+import type { Incident } from "./incidents.ts";
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
@@ -30,7 +31,24 @@ function strip(h: ServiceHistory | undefined): string {
         </div>`;
 }
 
-export function renderPage(s: Summary, now: number, histories: Map<string, ServiceHistory> = new Map()): string {
+/** The incidents list: open ones first, then those closed recently. Omitted entirely when there are none. */
+function incidentList(incidents: readonly Incident[], s: Summary, now: number): string {
+  if (!incidents.length) return "";
+  const name = (id: string) => s.services.find((x) => x.id === id)?.name ?? id;
+  const row = (i: Incident) => `
+      <li class="inc ${i.closedAt === null ? "open" : "closed"}">
+        <span class="name">${esc(name(i.monitor))}<span class="why">${esc(i.error)}</span></span>
+        <span class="state">${i.closedAt === null ? `Ongoing for ${duration(now - i.openedAt)}` : `Resolved after ${duration(i.closedAt - i.openedAt)}`}<span class="why">${esc(new Date(i.openedAt).toISOString().slice(0, 16).replace("T", " "))} UTC</span></span>
+      </li>`;
+  const open = incidents.filter((i) => i.closedAt === null).map(row).join("");
+  const closed = incidents.filter((i) => i.closedAt !== null).map(row).join("");
+  return `
+  <h2>Incidents</h2>
+  <ul class="incidents" aria-label="Incidents">${open}${closed}
+  </ul>`;
+}
+
+export function renderPage(s: Summary, now: number, histories: Map<string, ServiceHistory> = new Map(), incidents: readonly Incident[] = []): string {
   const rows = s.services.map((x) => `
       <li class="svc ${x.state}">
         <span class="mark" aria-hidden="true"></span>
@@ -76,6 +94,11 @@ ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); 
 .bar.ok { background: var(--up); }
 .bar.fail { background: var(--down); }
 .uptime { flex: none; font: 12.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+h2 { margin: 40px 0 12px; font-size: 13px; font-weight: 400; letter-spacing: .28em; text-transform: uppercase; color: var(--muted); }
+.incidents { border-top: 1px solid var(--ink); }
+.inc { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.inc.open .state { color: var(--down); }
+.inc.closed { color: var(--muted); }
 footer { margin-top: 28px; font-size: 13px; color: var(--muted); }
 footer a { color: inherit; }
 @media (max-width: 520px) { .svc { grid-template-columns: 12px minmax(0, 1fr) auto; } .ms { grid-column: 2 / -1; text-align: left; } .strip { height: 18px; } }
@@ -86,7 +109,7 @@ footer a { color: inherit; }
   <header><span class="word">Beacon</span><span class="when">${s.checkedAt === null ? "Not checked yet" : `Checked ${ago(s.checkedAt, now)}`}</span></header>
   <h1>${esc(headline(s))}<span class="dot">.</span></h1>
   <ul aria-label="Services">${rows}
-  </ul>
+  </ul>${incidentList(incidents, s, now)}
   <footer>Beacon checks each service once a minute from Cloudflare's network. The same data is at <a href="/api/status">/api/status</a>.</footer>
 </main>
 </body>

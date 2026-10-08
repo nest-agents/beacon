@@ -27,6 +27,10 @@ async function current(ctx: ExecutionContext, now: number) {
   return summarize(MONITORS, new Map(latest.map((r) => [r.monitor, r])));
 }
 
+/** Open incidents and those closed in the last 7 days, as the page lists them. */
+const INCIDENT_HISTORY_MS = 7 * 24 * 60 * 60 * 1000;
+const incidentsOf = (ctx: ExecutionContext, now: number) => ledgerOf(ctx).incidents(now - INCIDENT_HISTORY_MS);
+
 /** Each service's strip and 24-hour uptime, from the results the Ledger holds. */
 async function histories(ctx: ExecutionContext, now: number): Promise<Map<string, ServiceHistory>> {
   const results = await ledgerOf(ctx).recent(now, HISTORY_BARS, UPTIME_WINDOW_MS);
@@ -53,7 +57,7 @@ export default {
     if (url.pathname === "/") {
       // Sequential on purpose: `current` may run the checks, and the history must include what it just stored.
       const summary = await current(ctx, now);
-      const html = renderPage(summary, now, await histories(ctx, now));
+      const html = renderPage(summary, now, await histories(ctx, now), await incidentsOf(ctx, now));
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...SECURITY_HEADERS } });
     }
     if (url.pathname === "/api/status") {
