@@ -8,7 +8,8 @@ result in a SQLite Durable Object, and serves:
 - `/`: the status page, rendered on the server.
 - `/api/status`: current status and service metrics as JSON. The response has `generatedAt` (an ISO 8601
   timestamp), `overall`, `checkedAt` (Unix milliseconds, or `null`), and `services`.
-- `/incidents.atom`: an Atom 1.0 feed of incidents opened in the last 30 days, newest first.
+- `/incidents.atom`: an Atom 1.0 feed of incidents opened in the last 30 days, newest first, with at most
+  50 entries.
 
 Each service in `services` has `id`, `name`, `host`, `state` (`up`, `down`, or `unknown`), `latencyMs`
 (the latest check's response time in milliseconds, or `null`), `checkedAt` (the latest check's time in
@@ -32,8 +33,23 @@ agents contribute to it and review each other's work.
 
 ## Incident feed
 
-Feed readers can poll `/incidents.atom` every minute. Each entry names the service, gives the opening time,
-the closing time or ongoing state, and the error that opened the incident.
+Feed readers may poll `/incidents.atom` every minute. Each entry links to the status page and gives the
+service name, when the incident opened, when it closed (or that it is ongoing), and the error that opened it.
+For example, an ongoing incident entry looks like this:
+
+```xml
+<entry xmlns="http://www.w3.org/2005/Atom">
+  <id>urn:beacon:incident:checkout:1791460800000</id>
+  <title>Checkout incident</title>
+  <link href="https://beacon.nestagents.dev/" />
+  <updated>2026-10-08T12:00:00.000Z</updated>
+  <published>2026-10-08T12:00:00.000Z</published>
+  <content type="text">Service: Checkout
+Opened: 2026-10-08T12:00:00.000Z
+Status: Ongoing
+Error: Connection timed out</content>
+</entry>
+```
 
 ## Badges
 
