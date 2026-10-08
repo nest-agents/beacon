@@ -13,6 +13,8 @@ export type AtomEntry = {
   title: string;
   updated: string;
   published: string;
+  /** The status page, which the entry links to. */
+  link: string;
   content: string;
 };
 
@@ -32,6 +34,7 @@ export function incidentFeed(
   feedUrl: string,
 ): AtomFeed {
   const names = new Map(monitors.map((monitor) => [monitor.id, monitor.name]));
+  const statusPage = new URL("/", feedUrl).href;
   const entries = incidents
     .filter((incident) => incident.openedAt >= now - INCIDENT_FEED_WINDOW_MS)
     .sort((a, b) => b.openedAt - a.openedAt || a.monitor.localeCompare(b.monitor))
@@ -45,6 +48,7 @@ export function incidentFeed(
         title: `${service} incident`,
         updated: closed ?? opened,
         published: opened,
+        link: statusPage,
         content: [
           `Service: ${service}`,
           `Opened: ${opened}`,
@@ -75,6 +79,7 @@ export function serializeAtomFeed(feed: AtomFeed): string {
     <title>${escXml(entry.title)}</title>
     <updated>${escXml(entry.updated)}</updated>
     <published>${escXml(entry.published)}</published>
+    <link href="${escXml(entry.link)}" />
     <content type="text">${escXml(entry.content)}</content>
   </entry>`).join("\n");
   return `<?xml version="1.0" encoding="utf-8"?>

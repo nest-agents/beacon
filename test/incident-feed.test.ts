@@ -117,6 +117,9 @@ test("the typed incident feed serializes to parseable Atom with ordered, escaped
   assert.match(text(entries[1]!, "content"), /Status: Ongoing/);
   assert.match(text(entries[1]!, "content"), /Error: HTTP 503 & <retry>/);
   assert.ok(text(entries[0]!, "id").startsWith("urn:beacon:incident:beta:"));
+  for (const entry of entries) {
+    assert.deepEqual(children(entry, "link").map((link) => link.attributes), [{ href: "https://beacon.example/" }]);
+  }
 });
 
 test("an empty feed is still a valid Atom document with a current updated timestamp", () => {
