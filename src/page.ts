@@ -2,18 +2,33 @@
 // browser reload is all it needs.
 
 import { ago, headline, type Summary } from "./summary.ts";
+import type { ServiceHistory } from "./history.ts";
 
 const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 const STATE_LABEL = { up: "Operational", down: "Down", unknown: "No data yet" } as const;
 
-export function renderPage(s: Summary, now: number): string {
+/** The strip: one bar per check, oldest on the left. Each bar says whether its check passed. */
+function strip(h: ServiceHistory | undefined): string {
+  const bars = h?.bars ?? [];
+  const cells = bars.map((b) => `<span class="bar ${b.ok ? "ok" : "fail"}" title="${esc(b.ok ? "Up" : `Down: ${b.error ?? "failed"}`)}"></span>`).join("");
+  const uptime = h?.uptime === null || h?.uptime === undefined ? "No checks in 24 h" : `${h.uptime.toFixed(1)}% up in 24 h`;
+  const passed = bars.filter((b) => b.ok).length;
+  const summary = bars.length ? `Last ${bars.length} checks, oldest first: ${passed} passed.` : "No checks yet.";
+  return `<div class="hist">
+          <div class="strip" role="img" aria-label="${esc(summary)}">${cells}</div>
+          <span class="uptime">${esc(uptime)}</span>
+        </div>`;
+}
+
+export function renderPage(s: Summary, now: number, histories: Map<string, ServiceHistory> = new Map()): string {
   const rows = s.services.map((x) => `
       <li class="svc ${x.state}">
         <span class="mark" aria-hidden="true"></span>
         <span class="name">${esc(x.name)}<span class="host">${esc(x.host)}</span></span>
         <span class="state">${STATE_LABEL[x.state]}${x.state === "down" && x.error ? `<span class="why">${esc(x.error)}</span>` : ""}</span>
         <span class="ms">${x.latencyMs === null ? "" : `${x.latencyMs} ms`}</span>
+        ${strip(histories.get(x.id))}
       </li>`).join("");
   return `<!doctype html>
 <html lang="en">
@@ -46,9 +61,15 @@ ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); 
 .svc.down .state { color: var(--down); }
 .why { display: block; font-size: 12px; color: var(--muted); }
 .ms { font: 12.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.hist { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; margin-top: 2px; }
+.strip { flex: 1; min-width: 0; display: flex; align-items: stretch; gap: 2px; height: 22px; }
+.bar { flex: 1 1 0; min-width: 1px; background: var(--line); }
+.bar.ok { background: var(--up); }
+.bar.fail { background: var(--down); }
+.uptime { flex: none; font: 12.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 footer { margin-top: 28px; font-size: 13px; color: var(--muted); }
 footer a { color: inherit; }
-@media (max-width: 520px) { .svc { grid-template-columns: 12px minmax(0, 1fr) auto; } .ms { grid-column: 2 / -1; text-align: left; } }
+@media (max-width: 520px) { .svc { grid-template-columns: 12px minmax(0, 1fr) auto; } .ms { grid-column: 2 / -1; text-align: left; } .strip { height: 18px; } }
 </style>
 </head>
 <body class="overall-${s.overall}">
