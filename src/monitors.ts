@@ -18,4 +18,5 @@ export const MONITORS: Monitor[] = [
   { id: "nest-api", name: "Nest API", url: "https://nestagents.dev/api/projects", expect: { min: 200, max: 299 } },
   { id: "cloudflare-docs", name: "Cloudflare Docs", url: "https://developers.cloudflare.com/" },
   { id: "cloudflare-status", name: "Cloudflare Status", url: "https://www.cloudflarestatus.com/api/v2/status.json", expect: { min: 200, max: 299 } },
+  { id: "cloudflare-api", name: "Cloudflare API", url: "https://api.cloudflare.com/client/v4/ips", expect: { min: 200, max: 299 } },
 ];
