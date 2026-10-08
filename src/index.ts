@@ -8,6 +8,7 @@ import { renderPage } from "./page.ts";
 import { indexingHeaders } from "./robots.ts";
 import { summarize } from "./summary.ts";
 import { HISTORY_BARS, serviceHistory, UPTIME_WINDOW_MS, type ServiceHistory } from "./history.ts";
+import { openIncidentsByMonitor } from "./incidents.ts";
 import type { CheckResult } from "./probe.ts";
 
 export { Ledger } from "./ledger.ts";
@@ -63,9 +64,17 @@ async function route(request: Request, ctx: ExecutionContext): Promise<Response>
     if (url.pathname === "/api/status") {
       const s = await current(ctx, now);
       const hs = await histories(ctx, now);
+      const openIncidents = openIncidentsByMonitor(await incidentsOf(ctx, now));
       const services = s.services.map((x) => {
-        const lat = hs.get(x.id)?.latency ?? null;
-        return { ...x, latencyP50Ms: lat?.p50 ?? null, latencyP95Ms: lat?.p95 ?? null };
+        const history = hs.get(x.id);
+        const lat = history?.latency ?? null;
+        return {
+          ...x,
+          uptime: history?.uptime ?? null,
+          latencyP50Ms: lat?.p50 ?? null,
+          latencyP95Ms: lat?.p95 ?? null,
+          incident: openIncidents.get(x.id) ?? null,
+        };
       });
       return Response.json({ generatedAt: new Date(now).toISOString(), ...s, services }, { headers: { "cache-control": "no-store", "access-control-allow-origin": "*", ...SECURITY_HEADERS } });
     }
@@ -97,4 +106,3 @@ export default {
     await ledgerOf(ctx).runChecks(controller.scheduledTime);
   },
 } satisfies ExportedHandler<Env>;
-

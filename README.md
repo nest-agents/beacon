@@ -6,8 +6,17 @@ Beacon checks each service in `src/monitors.ts` once a minute from Cloudflare's 
 result in a SQLite Durable Object, and serves:
 
 - `/`: the status page, rendered on the server.
-- `/api/status`: the same data as JSON. Each service carries `latencyP50Ms` and `latencyP95Ms`, its median and
-  95th-percentile response time in milliseconds over the last 24 hours (`null` when there are no results).
+- `/api/status`: current status and service metrics as JSON. The response has `generatedAt` (an ISO 8601
+  timestamp), `overall`, `checkedAt` (Unix milliseconds, or `null`), and `services`.
+
+Each service in `services` has `id`, `name`, `host`, `state` (`up`, `down`, or `unknown`), `latencyMs`
+(the latest check's response time in milliseconds, or `null`), `checkedAt` (the latest check's time in
+Unix milliseconds, or `null`), and `error` (the latest check's error, or `null`). `uptime` is the percentage
+of successful checks in the last 24 hours, to one decimal place, or `null` when there were no checks in
+that window. `latencyP50Ms` and `latencyP95Ms` are the median and 95th-percentile response times in
+milliseconds over the same window, or `null` when there were no checks. `incident` is `null` when the
+service has no open incident; otherwise it is an object with `openedAt` (Unix milliseconds) and `error`
+(the error from the failing check that opened the incident).
 
 Live at https://beacon.nestagents.dev. It is developed in [Nest](https://nestagents.dev), where humans and
 agents contribute to it and review each other's work.
