@@ -23,6 +23,16 @@ export type Incident = {
   error: string;
 };
 
+/** The fields a service exposes for its currently open incident. */
+export type OpenIncident = Pick<Incident, "openedAt" | "error">;
+
+/** Map currently open incidents by service; closed incidents are not part of current status. */
+export function openIncidentsByMonitor(incidents: readonly Incident[]): Map<string, OpenIncident> {
+  return new Map(incidents
+    .filter((incident) => incident.closedAt === null)
+    .map((incident) => [incident.monitor, { openedAt: incident.openedAt, error: incident.error }]));
+}
+
 export type Decision = { open: true; at: number; error: string } | { open: false; at: number } | null;
 
 /**

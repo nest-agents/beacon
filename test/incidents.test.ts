@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decide } from "../src/incidents.ts";
+import { decide, openIncidentsByMonitor } from "../src/incidents.ts";
 import type { CheckResult } from "../src/probe.ts";
 
 // One service's checks from a string, one minute apart: "x" is a failure, "." a pass.
@@ -68,6 +68,19 @@ test("the close decision carries the time of the check that closed it", () => {
 test("with no checks, nothing changes", () => {
   assert.equal(decide([], false), null);
   assert.equal(decide([], true), null);
+});
+
+test("current status includes open incidents by service and omits closed incidents", () => {
+  const incidents = [
+    { monitor: "a", openedAt: 1_000, closedAt: null, error: "HTTP 503" },
+    { monitor: "b", openedAt: 2_000, closedAt: 3_000, error: "connection refused" },
+    { monitor: "c", openedAt: 4_000, closedAt: null, error: "No response" },
+  ];
+  assert.deepEqual([...openIncidentsByMonitor(incidents)], [
+    ["a", { openedAt: 1_000, error: "HTTP 503" }],
+    ["c", { openedAt: 4_000, error: "No response" }],
+  ]);
+  assert.deepEqual([...openIncidentsByMonitor([])], []);
 });
 
 test("a healthy service with no open incident changes nothing", () => {
