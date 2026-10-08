@@ -4,6 +4,7 @@
 import { DurableObject } from "cloudflare:workers";
 import { MONITORS } from "./monitors.ts";
 import { probe, type CheckResult } from "./probe.ts";
+import { decide, WINDOW, type Incident } from "./incidents.ts";
 
 /** Checks run at most this often, however many requests or cron ticks ask for them. */
 export const MIN_INTERVAL_MS = 30_000;
@@ -23,6 +24,9 @@ export class Ledger extends DurableObject<Env> {
         ok INTEGER NOT NULL, status INTEGER, latency_ms INTEGER NOT NULL, error TEXT);
       CREATE INDEX IF NOT EXISTS checks_monitor_at ON checks(monitor, at);
       CREATE TABLE IF NOT EXISTS meta(k TEXT PRIMARY KEY, v TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS incidents(id INTEGER PRIMARY KEY AUTOINCREMENT, monitor TEXT NOT NULL, opened_at INTEGER NOT NULL,
+        closed_at INTEGER, error TEXT NOT NULL);
+      CREATE INDEX IF NOT EXISTS incidents_monitor_closed ON incidents(monitor, closed_at);
     `);
   }
 
@@ -35,7 +39,28 @@ export class Ledger extends DurableObject<Env> {
     for (const r of results)
       this.sql.exec("INSERT INTO checks(monitor, at, ok, status, latency_ms, error) VALUES (?, ?, ?, ?, ?, ?)", r.monitor, r.at, r.ok ? 1 : 0, r.status, r.latencyMs, r.error);
     this.sql.exec("DELETE FROM checks WHERE at < ?", now - RETENTION_MS);
+    for (const m of MONITORS) this.applyRule(m.id);
     return { ran: true, results };
+  }
+
+  /** Opens or closes a service's incident when its last WINDOW checks say so. */
+  private applyRule(monitor: string): void {
+    const recent = this.sql.exec<Row>("SELECT * FROM checks WHERE monitor = ? ORDER BY at DESC, id DESC LIMIT ?", monitor, WINDOW)
+      .toArray().map(toResult).reverse();
+    const open = this.sql.exec<Row>("SELECT id FROM incidents WHERE monitor = ? AND closed_at IS NULL", monitor).toArray()[0];
+    const d = decide(recent, open !== undefined);
+    if (!d) return;
+    if (d.open) this.sql.exec("INSERT INTO incidents(monitor, opened_at, closed_at, error) VALUES (?, ?, NULL, ?)", monitor, d.at, d.error);
+    else this.sql.exec("UPDATE incidents SET closed_at = ? WHERE monitor = ? AND closed_at IS NULL", d.at, monitor);
+  }
+
+  /** Open incidents, and those closed at or after `since`, newest first. */
+  incidents(since: number): Incident[] {
+    return this.sql.exec<Row>(
+      "SELECT * FROM incidents WHERE closed_at IS NULL OR closed_at >= ? ORDER BY opened_at DESC, id DESC", since,
+    ).toArray().map((r) => ({
+      monitor: String(r.monitor), openedAt: Number(r.opened_at), closedAt: r.closed_at === null ? null : Number(r.closed_at), error: String(r.error),
+    }));
   }
 
   /**
