@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { INCIDENT_FEED_WINDOW_MS, incidentFeed, serializeAtomFeed } from "../src/incident-feed.ts";
+import { INCIDENT_FEED_MAX_ENTRIES, INCIDENT_FEED_WINDOW_MS, incidentFeed, serializeAtomFeed } from "../src/incident-feed.ts";
 import type { Incident } from "../src/incidents.ts";
 import type { Monitor } from "../src/monitors.ts";
 
@@ -125,4 +125,26 @@ test("an empty feed is still a valid Atom document with a current updated timest
   const parsed = parseXml(serializeAtomFeed(model));
   assert.equal(text(parsed, "updated"), new Date(now).toISOString());
   assert.deepEqual(children(parsed, "entry"), []);
+});
+
+test("the feed keeps the newest 50 incidents and leaves out the 51st", () => {
+  const now = Date.UTC(2026, 9, 8);
+  assert.equal(INCIDENT_FEED_MAX_ENTRIES, 50);
+  // 51 incidents inside the window, opened one minute apart; the oldest is the 51st.
+  const incidents: Incident[] = Array.from({ length: 51 }, (_, i) => ({
+    monitor: "alpha",
+    openedAt: now - (i + 1) * 60_000,
+    closedAt: null,
+    error: `Error #${i}`,
+  }));
+  const model = incidentFeed(incidents, monitors, now, "https://beacon.example/incidents.atom");
+  const parsed = parseXml(serializeAtomFeed(model));
+  const entries = children(parsed, "entry");
+
+  assert.equal(entries.length, 50, "at most 50 entries");
+  const published = entries.map((entry) => text(entry, "published"));
+  assert.equal(published[0], new Date(now - 60_000).toISOString(), "newest entry comes first");
+  assert.equal(published[49], new Date(now - 50 * 60_000).toISOString(), "50th-newest is the last entry");
+  assert.ok(!published.includes(new Date(now - 51 * 60_000).toISOString()), "the 51st incident is left out");
+  assert.ok(!entries.some((entry) => text(entry, "content").includes("Error #50\n")), "the 51st incident's content is absent");
 });

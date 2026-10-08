@@ -5,6 +5,9 @@ import type { Monitor } from "./monitors.ts";
 
 export const INCIDENT_FEED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
 
+/** The feed carries at most this many entries, newest first. */
+export const INCIDENT_FEED_MAX_ENTRIES = 50;
+
 export type AtomEntry = {
   id: string;
   title: string;
@@ -21,7 +24,7 @@ export type AtomFeed = {
   entries: AtomEntry[];
 };
 
-/** Build the incidents opened within the last 30 days, newest first. */
+/** Build the incidents opened within the last 30 days, newest first, at most INCIDENT_FEED_MAX_ENTRIES. */
 export function incidentFeed(
   incidents: Incident[],
   monitors: readonly Monitor[],
@@ -32,6 +35,7 @@ export function incidentFeed(
   const entries = incidents
     .filter((incident) => incident.openedAt >= now - INCIDENT_FEED_WINDOW_MS)
     .sort((a, b) => b.openedAt - a.openedAt || a.monitor.localeCompare(b.monitor))
+    .slice(0, INCIDENT_FEED_MAX_ENTRIES)
     .map((incident): AtomEntry => {
       const service = names.get(incident.monitor) ?? incident.monitor;
       const opened = new Date(incident.openedAt).toISOString();
