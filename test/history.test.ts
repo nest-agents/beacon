@@ -53,5 +53,6 @@ test("serviceHistory combines the strip and the uptime", () => {
   assert.deepEqual(h.bars.map((b) => b.ok), [false, true]);
   assert.equal(h.bars[0]!.error, "HTTP 503");
   assert.equal(h.uptime, 50);
-  assert.deepEqual(serviceHistory([], now), { bars: [], uptime: null });
+  assert.deepEqual(h.latency, { p50: 10, p95: 10 });
+  assert.deepEqual(serviceHistory([], now), { bars: [], uptime: null, latency: null });
 });

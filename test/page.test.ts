@@ -29,19 +29,33 @@ test("a fresh deployment says it has not checked yet", () => {
 test("each service shows a strip of its checks, oldest first, and its 24-hour uptime", () => {
   const now = 100_000;
   const latest = new Map([["a", { monitor: "a", at: now - 1000, ok: true, status: 200, latencyMs: 80, error: null }]]);
-  const histories = new Map([["a", { bars: [{ at: 1, ok: true, error: null }, { at: 2, ok: false, error: "HTTP 503" }, { at: 3, ok: true, error: null }], uptime: 66.7 }]]);
+  const histories = new Map([["a", { bars: [{ at: 1, ok: true, error: null }, { at: 2, ok: false, error: "HTTP 503" }, { at: 3, ok: true, error: null }], uptime: 66.7, latency: { p50: 80, p95: 120 } }]]);
   const html = renderPage(summarize(monitors, latest), now, histories);
   const bars = [...html.matchAll(/class="bar (ok|fail)"/g)].map((m) => m[1]);
   assert.deepEqual(bars, ["ok", "fail", "ok"]);
   assert.match(html, /66\.7% up in 24 h/);
+  assert.match(html, /p50 80 ms · p95 120 ms/);
   assert.match(html, /title="Down: HTTP 503"/);
   assert.match(html, /aria-label="Last 3 checks, oldest first: 2 passed\."/);
 });
 
 test("a service with no checks in 24 hours shows no percentage, not 100%", () => {
-  const html = renderPage(summarize(monitors, new Map()), 0, new Map([["a", { bars: [], uptime: null }]]));
+  const html = renderPage(summarize(monitors, new Map()), 0, new Map([["a", { bars: [], uptime: null, latency: null }]]));
   assert.match(html, /No checks in 24 h/);
+  assert.match(html, /No latency yet/);
   assert.doesNotMatch(html, /100(\.0)?%/);
+});
+
+test("the latency label wraps on a 360 px phone instead of overflowing the row", () => {
+  const html = renderPage(summarize(monitors, new Map()), 0, new Map([["a", { bars: [], uptime: null, latency: { p50: 80, p95: 120 } }]]));
+  const css = html.slice(html.indexOf("<style>"), html.indexOf("</style>"));
+  const speedRule = /\.uptime, \.speed \{([^}]*)\}/.exec(css)?.[1] ?? "";
+  assert.ok(speedRule, "the latency label has a style rule");
+  assert.doesNotMatch(speedRule, /nowrap/);
+  assert.match(speedRule, /overflow-wrap: anywhere/);
+  assert.match(css, /\.hist \{[^}]*flex-wrap: wrap/);
+  assert.match(css, /@media \(max-width: 520px\)[^\n]*\.hist \.strip \{ flex-basis: 12rem; \}/);
+  assert.match(html, /<span class="speed">p50 80 ms · p95 120 ms<\/span>/);
 });
 
 test("duration reads as minutes, hours and days", () => {

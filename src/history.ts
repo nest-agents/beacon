@@ -2,6 +2,7 @@
 // Pure: it works from stored results and the current time, and never touches storage.
 
 import type { CheckResult } from "./probe.ts";
+import { latencyPercentiles, type Latency } from "./latency.ts";
 
 /** The strip shows this many checks, however many are stored. */
 export const HISTORY_BARS = 90;
@@ -13,6 +14,8 @@ export type ServiceHistory = {
   bars: { at: number; ok: boolean; error: string | null }[];
   /** Share of checks in the last 24 hours that passed, to one decimal place; null when there were none. */
   uptime: number | null;
+  /** Median and 95th-percentile latency over the last 24 hours, in ms; null when there were no checks. */
+  latency: Latency | null;
 };
 
 /** The last `count` results by time, oldest first. Results may arrive in any order. */
@@ -33,5 +36,6 @@ export function serviceHistory(results: CheckResult[], now: number): ServiceHist
   return {
     bars: lastResults(results, HISTORY_BARS).map((r) => ({ at: r.at, ok: r.ok, error: r.error })),
     uptime: uptimePercent(results, now),
+    latency: latencyPercentiles(results, now),
   };
 }

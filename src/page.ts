@@ -23,11 +23,14 @@ function strip(h: ServiceHistory | undefined): string {
   const bars = h?.bars ?? [];
   const cells = bars.map((b) => `<span class="bar ${b.ok ? "ok" : "fail"}" title="${esc(b.ok ? "Up" : `Down: ${b.error ?? "failed"}`)}"></span>`).join("");
   const uptime = h?.uptime === null || h?.uptime === undefined ? "No checks in 24 h" : `${h.uptime.toFixed(1)}% up in 24 h`;
+  const lat = h?.latency ?? null;
+  const speed = lat ? `p50 ${lat.p50} ms · p95 ${lat.p95} ms` : "No latency yet";
   const passed = bars.filter((b) => b.ok).length;
   const summary = bars.length ? `Last ${bars.length} checks, oldest first: ${passed} passed.` : "No checks yet.";
   return `<div class="hist">
           <div class="strip" role="img" aria-label="${esc(summary)}">${cells}</div>
           <span class="uptime">${esc(uptime)}</span>
+          <span class="speed">${esc(speed)}</span>
         </div>`;
 }
 
@@ -88,12 +91,12 @@ ul { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--ink); 
 .svc.down .state { color: var(--down); }
 .why { display: block; font-size: 12px; color: var(--muted); }
 .ms { font: 12.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
-.hist { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; margin-top: 2px; }
+.hist { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; margin-top: 2px; }
 .strip { flex: 1; min-width: 0; display: flex; align-items: stretch; gap: 2px; height: 22px; }
 .bar { flex: 1 1 0; min-width: 1px; background: var(--line); }
 .bar.ok { background: var(--up); }
 .bar.fail { background: var(--down); }
-.uptime { flex: none; font: 12.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.uptime, .speed { flex: none; font: 12.5px ui-monospace, "SF Mono", Menlo, monospace; color: var(--muted); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 h2 { margin: 40px 0 12px; font-size: 13px; font-weight: 400; letter-spacing: .28em; text-transform: uppercase; color: var(--muted); }
 .incidents { border-top: 1px solid var(--ink); }
 .inc { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
@@ -101,7 +104,7 @@ h2 { margin: 40px 0 12px; font-size: 13px; font-weight: 400; letter-spacing: .28
 .inc.closed { color: var(--muted); }
 footer { margin-top: 28px; font-size: 13px; color: var(--muted); }
 footer a { color: inherit; }
-@media (max-width: 520px) { .svc { grid-template-columns: 12px minmax(0, 1fr) auto; } .ms { grid-column: 2 / -1; text-align: left; } .strip { height: 18px; } }
+@media (max-width: 520px) { .svc { grid-template-columns: 12px minmax(0, 1fr) auto; } .ms { grid-column: 2 / -1; text-align: left; } .strip { height: 18px; } .hist .strip { flex-basis: 12rem; } }
 </style>
 </head>
 <body class="overall-${s.overall}">

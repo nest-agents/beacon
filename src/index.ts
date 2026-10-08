@@ -62,7 +62,12 @@ async function route(request: Request, ctx: ExecutionContext): Promise<Response>
     }
     if (url.pathname === "/api/status") {
       const s = await current(ctx, now);
-      return Response.json({ generatedAt: new Date(now).toISOString(), ...s }, { headers: { "cache-control": "no-store", "access-control-allow-origin": "*", ...SECURITY_HEADERS } });
+      const hs = await histories(ctx, now);
+      const services = s.services.map((x) => {
+        const lat = hs.get(x.id)?.latency ?? null;
+        return { ...x, latencyP50Ms: lat?.p50 ?? null, latencyP95Ms: lat?.p95 ?? null };
+      });
+      return Response.json({ generatedAt: new Date(now).toISOString(), ...s, services }, { headers: { "cache-control": "no-store", "access-control-allow-origin": "*", ...SECURITY_HEADERS } });
     }
     const badgePath = /^\/badge\/([a-z0-9-]+)\.svg$/.exec(url.pathname);
     if (badgePath) {
