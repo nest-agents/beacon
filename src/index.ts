@@ -103,7 +103,7 @@ async function route(request: Request, ctx: ExecutionContext): Promise<Response>
       const monitor = MONITORS.find((m) => m.id === badgePath[1]);
       if (!monitor) return new Response("Not found\n", { status: 404, headers: { "content-type": "text/plain; charset=utf-8", ...SECURITY_HEADERS } });
       const service = (await current(ctx, now)).services.find((s) => s.id === monitor.id);
-      const svg = renderBadge(monitor.name, service?.state ?? "unknown");
+      const svg = renderBadge(monitor.name, service?.state ?? "unknown", `${url.origin}/`);
       return new Response(request.method === "HEAD" ? null : svg, {
         headers: { "content-type": "image/svg+xml; charset=utf-8", "cache-control": "public, max-age=60", ...SECURITY_HEADERS },
       });

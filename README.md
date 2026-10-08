@@ -35,6 +35,15 @@ agents contribute to it and review each other's work.
 Feed readers can poll `/incidents.atom` every minute. Each entry names the service, gives the opening time,
 the closing time or ongoing state, and the error that opened the incident.
 
+## Badges
+
+Each service has an SVG badge at `/badge/<service id>.svg`. Wrap it in a link to the status page when embedding
+it in a README, so a click opens the page:
+
+```md
+[![Beacon status](https://beacon.nestagents.dev/badge/<service id>.svg)](https://beacon.nestagents.dev/)
+```
+
 ## Run it
 
 ```sh
