@@ -16,10 +16,10 @@ test("Cloudflare API is watched at its public ips endpoint, expecting 2xx", () =
   assert.deepEqual(m.expect, { min: 200, max: 299 });
 });
 
-test("Cloudflare Dashboard is watched publicly, accepting 2xx and redirects", () => {
-  const m = MONITORS.find((x) => x.id === "cloudflare-dashboard");
-  assert.ok(m, "cloudflare-dashboard monitor exists");
-  assert.equal(m.name, "Cloudflare Dashboard");
-  assert.equal(m.url, "https://dash.cloudflare.com/");
+test("Cloudflare is watched publicly, accepting 2xx and redirects", () => {
+  const m = MONITORS.find((x) => x.id === "cloudflare");
+  assert.ok(m, "cloudflare monitor exists");
+  assert.equal(m.name, "Cloudflare");
+  assert.equal(m.url, "https://www.cloudflare.com/");
   assert.deepEqual(m.expect, { min: 200, max: 399 });
 });
