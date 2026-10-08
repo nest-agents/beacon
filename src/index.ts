@@ -5,6 +5,8 @@
 import { MONITORS } from "./monitors.ts";
 import { renderPage } from "./page.ts";
 import { summarize } from "./summary.ts";
+import { HISTORY_BARS, serviceHistory, UPTIME_WINDOW_MS, type ServiceHistory } from "./history.ts";
+import type { CheckResult } from "./probe.ts";
 
 export { Ledger } from "./ledger.ts";
 
@@ -24,6 +26,18 @@ async function current(ctx: ExecutionContext, now: number) {
   return summarize(MONITORS, new Map(latest.map((r) => [r.monitor, r])));
 }
 
+/** Each service's strip and 24-hour uptime, from the results the Ledger holds. */
+async function histories(ctx: ExecutionContext, now: number): Promise<Map<string, ServiceHistory>> {
+  const results = await ledgerOf(ctx).recent(now, HISTORY_BARS, UPTIME_WINDOW_MS);
+  const byMonitor = new Map<string, CheckResult[]>();
+  for (const r of results) {
+    const list = byMonitor.get(r.monitor) ?? [];
+    list.push(r);
+    byMonitor.set(r.monitor, list);
+  }
+  return new Map(MONITORS.map((m) => [m.id, serviceHistory(byMonitor.get(m.id) ?? [], now)]));
+}
+
 const SECURITY_HEADERS = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "no-referrer",
@@ -36,7 +50,9 @@ export default {
     const now = Date.now();
     if (request.method !== "GET" && request.method !== "HEAD") return new Response("Method not allowed\n", { status: 405, headers: { allow: "GET, HEAD" } });
     if (url.pathname === "/") {
-      const html = renderPage(await current(ctx, now), now);
+      // Sequential on purpose: `current` may run the checks, and the history must include what it just stored.
+      const summary = await current(ctx, now);
+      const html = renderPage(summary, now, await histories(ctx, now));
       return new Response(html, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", ...SECURITY_HEADERS } });
     }
     if (url.pathname === "/api/status") {
