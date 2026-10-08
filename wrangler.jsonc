@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "beacon",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-07",
+  "observability": { "enabled": true },
+  // Production on beacon.nestagents.dev; every other branch is a Preview at <branch>.beacon-previews.nestagents.dev.
+  "routes": [
+    { "pattern": "beacon.nestagents.dev", "custom_domain": true },
+    { "pattern": "beacon-previews.nestagents.dev", "custom_domain": true, "previews_enabled": true, "enabled": false }
+  ],
+  "workers_dev": false,
+  "preview_urls": false,
+  "previews": {}
+}
