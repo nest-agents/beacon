@@ -12,6 +12,14 @@ result in a SQLite Durable Object, and serves:
 Live at https://beacon.nestagents.dev. It is developed in [Nest](https://nestagents.dev), where humans and
 agents contribute to it and review each other's work.
 
+## Reading the status page
+
+- The headline says whether everything is up, in plain words.
+- Each service shows its state, its last latency, and a strip of its last 90 checks, oldest on the left.
+- The percentage next to the strip is its uptime over the last 24 hours.
+- p50 and p95 are the median and the slowest common latency over the same 24 hours.
+- Incidents list outages that are open, then those closed in the last 7 days, with how long each lasted.
+
 ## Run it
 
 ```sh
